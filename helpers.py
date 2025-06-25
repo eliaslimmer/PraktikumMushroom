@@ -64,47 +64,47 @@ def generate_answers(model, tokenizer, lang_queries, language):
                 )
                 for messages in batch_messages
         ]
-    inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True,max_length=1024)
-    inputs = inputs.to("cuda")
+            inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, padding_side='left', truncation=True,max_length=1024)
+            inputs = inputs.to("cuda")
 
-    with torch.no_grad():
-        output_ids = model.generate(**inputs, max_new_tokens = max_new_tokens, return_dict_in_generate=True, output_scores=True, pad_token_id=tokenizer.pad_token_id)
+            with torch.no_grad():
+                output_ids = model.generate(**inputs, max_new_tokens = max_new_tokens, return_dict_in_generate=True, output_scores=True, pad_token_id=tokenizer.pad_token_id)
 
-    gen_only_ids = output_ids.sequences[:, inputs.input_ids.shape[1]:]
-    decoded = tokenizer.batch_decode(gen_only_ids, skip_special_tokens=True)
+            gen_only_ids = output_ids.sequences[:, inputs.input_ids.shape[1]:]
+            decoded = tokenizer.batch_decode(gen_only_ids, skip_special_tokens=True)
 
-    selected_token_probs_batch = []
-    for step, scores in enumerate(output_ids.scores):
-        probs = torch.softmax(scores, dim=-1)
-    selected_probs = []
-    for b in range(probs.size(0)):
+            selected_token_probs_batch = []
+            for step, scores in enumerate(output_ids.scores):
+                probs = torch.softmax(scores, dim=-1)
+            selected_probs = []
+            for b in range(probs.size(0)):
 
-        token_index = inputs.input_ids.shape[1] + step
-        try:
-            token_id = output_ids.sequences[b][token_index].item()
-            prob = probs[b][token_id].item()
-        except IndexError:
-            prob = 0.0
-        selected_probs.append(prob)
-    selected_token_probs_batch.append(selected_probs)
+                token_index = inputs.input_ids.shape[1] + step
+                try:
+                    token_id = output_ids.sequences[b][token_index].item()
+                    prob = probs[b][token_id].item()
+                except IndexError:
+                    prob = 0.0
+                selected_probs.append(prob)
+            selected_token_probs_batch.append(selected_probs)
 
-    for b_idx, (query, prompt_text, full_output) in enumerate(zip(batch, batch_prompts, decoded)):
-        if full_output.startswith(prompt_text):
-            cleaned_output = full_output[len(prompt_text):].strip()
-    else:
-        cleaned_output = full_output.strip()
+            for b_idx, (query, prompt_text, full_output) in enumerate(zip(batch, batch_prompts, decoded)):
+                if full_output.startswith(prompt_text):
+                    cleaned_output = full_output[len(prompt_text):].strip()
+            else:
+                cleaned_output = full_output.strip()
 
-    selected_probs = [selected_token_probs_batch[step][b_idx] for step in range(len(selected_token_probs_batch))]
+            selected_probs = [selected_token_probs_batch[step][b_idx] for step in range(len(selected_token_probs_batch))]
 
-    f.write(json.dumps({
-        "model_input": query,
-        "model_output_text": cleaned_output,
-        "token_scores": selected_probs
-            }, ensure_ascii=False) + "\n")
+            f.write(json.dumps({
+                "model_input": query,
+                "model_output_text": cleaned_output,
+                "token_scores": selected_probs
+                    }, ensure_ascii=False) + "\n")
 
-    output_list.append(cleaned_output)
-    output_scores.append(selected_probs)
+            output_list.append(cleaned_output)
+            output_scores.append(selected_probs)
 
-    del inputs, output_ids, decoded, selected_token_probs_batch
-    gc.collect()
-    torch.cuda.empty_cache()
+            del inputs, output_ids, decoded, selected_token_probs_batch
+            gc.collect()
+            torch.cuda.empty_cache()
