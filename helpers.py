@@ -26,11 +26,6 @@ def prepare_dataset(language):
     # Store the extracted data in the dictionary
     language_data['queries'] = language_queries
     language_data['answers'] = language_answers
-
-    # Print the length of the dataset and a sample query and answer
-    print(f"Length of {language} dataset: {len(language_data['queries'])}, "
-        f"sample {language} query: {language_data['queries'][0]}, "
-        f"sample {language} answer: {', '.join(language_data['answers'][0])}")
     
     return language_data
 
