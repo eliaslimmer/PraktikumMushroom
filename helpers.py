@@ -49,24 +49,24 @@ def generate_answers(model, tokenizer, lang_queries, language):
         if language == 'de':
             return {
             "role": "system",
-            "contetn": "Antworte kurzgefasst. Erkläre nicht den Hintergrund/Begründung."
+            "content": "Antworte kurzgefasst. Erkläre nicht den Hintergrund/Begründung."
             }
-
+    
+    model.to("cuda")
     output_scores = []
     output_list = []
+    
     with open("outputs_partial.jsonl", "a", encoding="utf-8") as f:
         for i in tqdm(range(0, len(lang_queries), batch_size), desc="Generating", total=(len(lang_queries) + batch_size - 1) // batch_size):
             batch = lang_queries[i:i+batch_size]
             batch_messages = [[system_msg(language), {"role": "user", "content":query}] for query in batch]
             batch_prompts = [
-                tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True
-                )
+                tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
                 for messages in batch_messages
-        ]
-            inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, padding_side='left', truncation=True,max_length=1024)
+            ]
+            inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True,max_length=1024)
             inputs = inputs.to("cuda")
-            model.to("cuda")
+            
 
             with torch.no_grad():
                 output_ids = model.generate(**inputs, max_new_tokens = max_new_tokens, return_dict_in_generate=True, output_scores=True, pad_token_id=tokenizer.pad_token_id)
@@ -77,34 +77,33 @@ def generate_answers(model, tokenizer, lang_queries, language):
             selected_token_probs_batch = []
             for step, scores in enumerate(output_ids.scores):
                 probs = torch.softmax(scores, dim=-1)
-            selected_probs = []
-            for b in range(probs.size(0)):
-
-                token_index = inputs.input_ids.shape[1] + step
-                try:
-                    token_id = output_ids.sequences[b][token_index].item()
-                    prob = probs[b][token_id].item()
-                except IndexError:
-                    prob = 0.0
-                selected_probs.append(prob)
-            selected_token_probs_batch.append(selected_probs)
+                selected_probs = []
+                for b in range(probs.size(0)):
+                    token_index = inputs.input_ids.shape[1] + step
+                    try:
+                        token_id = output_ids.sequences[b][token_index].item()
+                        prob = probs[b][token_id].item()
+                    except IndexError:
+                        prob = 0.0
+                    selected_probs.append(prob)
+                selected_token_probs_batch.append(selected_probs)
 
             for b_idx, (query, prompt_text, full_output) in enumerate(zip(batch, batch_prompts, decoded)):
                 if full_output.startswith(prompt_text):
                     cleaned_output = full_output[len(prompt_text):].strip()
-            else:
-                cleaned_output = full_output.strip()
+                else:
+                    cleaned_output = full_output.strip()
 
-            selected_probs = [selected_token_probs_batch[step][b_idx] for step in range(len(selected_token_probs_batch))]
+                selected_probs = [selected_token_probs_batch[step][b_idx] for step in range(len(selected_token_probs_batch))]
 
-            f.write(json.dumps({
-                "model_input": query,
-                "model_output_text": cleaned_output,
-                "token_scores": selected_probs
+                f.write(json.dumps({
+                    "model_input": query,
+                    "model_output_text": cleaned_output,
+                    "token_scores": selected_probs
                     }, ensure_ascii=False) + "\n")
 
-            output_list.append(cleaned_output)
-            output_scores.append(selected_probs)
+                output_list.append(cleaned_output)
+                output_scores.append(selected_probs)
 
             del inputs, output_ids, decoded, selected_token_probs_batch
             gc.collect()
