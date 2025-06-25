@@ -31,7 +31,7 @@ def prepare_dataset(language):
 
 
 
-def generate_answers(model, tokenizer, lang_queries, language):
+def generate_answers(model, tokenizer, lang_queries, language, file_path='outputs_partial.jsonl'):
     batch_size = 4
     max_new_tokens = 64
     
@@ -56,7 +56,7 @@ def generate_answers(model, tokenizer, lang_queries, language):
     output_scores = []
     output_list = []
     
-    with open("outputs_partial.jsonl", "a", encoding="utf-8") as f:
+    with open(file_path, "a", encoding="utf-8") as f:
         for i in tqdm(range(0, len(lang_queries), batch_size), desc="Generating", total=(len(lang_queries) + batch_size - 1) // batch_size):
             batch = lang_queries[i:i+batch_size]
             batch_messages = [[system_msg(language), {"role": "user", "content":query}] for query in batch]
@@ -108,3 +108,55 @@ def generate_answers(model, tokenizer, lang_queries, language):
             del inputs, output_ids, decoded, selected_token_probs_batch
             gc.collect()
             torch.cuda.empty_cache()
+
+def span_mapping(file_path, output_path, tokenizer):
+    def find_hallucination_spans(text, probabilities, tokenizer, threshold=0.4):
+        encoding = tokenizer(text, return_offsets_mapping = True, return_tensors="pt", truncation=True)
+        offsets = encoding["offset_mapping"][0].tolist()
+        hallucinated_spans = []
+        current_span = {}
+        current_span_num = 0
+        for i, (start, end) in enumerate(offsets):
+            if start == end:
+                continue
+            if i >= len(probabilities):
+                break
+            prob = probabilities[i]
+            if current_span_num > 0:
+                if prob < threshold:
+                    current_span['end'] = end
+                    avg_probs = (current_span['prob'] * current_span_num + prob) / (current_span_num + 1)
+                    current_span['prob'] = avg_probs
+                    current_span_num += 1
+                else:
+                    avg_probs = (current_span['prob'] * current_span_num + prob) / (current_span_num + 1)
+                    if avg_probs < threshold:
+                        current_span['end'] = end
+                        current_span['prob'] = avg_probs
+                        current_span_num += 1
+                    else:
+                        hallucinated_spans.append(current_span)
+                        current_span = {}
+                        current_span_num = 0
+            else:
+                if prob < threshold:
+                    current_span['start'] = start
+                    current_span['end'] = end
+                    current_span['prob'] = prob
+                    current_span_num = 1
+                else:
+                    continue
+            if current_span:
+                    hallucinated_spans.append(current_span)
+            return hallucinated_spans
+    
+    with open(file_path, "r", encoding = "utf-8") as f:
+        data = [json.loads(line) for line in f]
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        for item in data:
+            text = item["model_output_text"]
+            probabilities = item["token_scores"]
+            spans = find_hallucination_spans(text, probabilities, tokenizer)
+            item["soft_labels"] = spans
+            f.write(json.dumps(item, ensure_ascii=False) + "\n")
