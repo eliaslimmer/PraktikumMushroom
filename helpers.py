@@ -66,6 +66,7 @@ def generate_answers(model, tokenizer, lang_queries, language):
         ]
             inputs = tokenizer(batch_prompts, return_tensors="pt", padding=True, padding_side='left', truncation=True,max_length=1024)
             inputs = inputs.to("cuda")
+            model.to("cuda")
 
             with torch.no_grad():
                 output_ids = model.generate(**inputs, max_new_tokens = max_new_tokens, return_dict_in_generate=True, output_scores=True, pad_token_id=tokenizer.pad_token_id)
