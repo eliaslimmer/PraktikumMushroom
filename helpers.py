@@ -31,7 +31,7 @@ def prepare_dataset(language):
 
 
 
-def generate_answers(model, tokenizer, lang_queries, language, file_path='outputs_partial.jsonl'):
+def generate_answers(model, tokenizer, lang_queries, language, file_path):
     batch_size = 4
     max_new_tokens = 64
     
