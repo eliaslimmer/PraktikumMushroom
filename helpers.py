@@ -1,11 +1,13 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, DataCollatorForTokenClassification
 import torch
-
+import evaluate
 from datasets import load_dataset
-
+import torch.nn.functional as F
 import gc
 import json
 from tqdm import tqdm
+from scipy.stats import spearmanr #For the spearman correlation computation
+
 
 
 
@@ -29,24 +31,38 @@ def prepare_dataset(language):
     print(f"Length of {language} dataset: {len(language_data['queries'])}, "
         f"sample {language} query: {language_data['queries'][0]}, "
         f"sample {language} answer: {', '.join(language_data['answers'][0])}")
+    
+    return language_data
 
 
 
-def generate_answers(model, tokenizer, lang_queries):
+def generate_answers(model, tokenizer, lang_queries, language):
     batch_size = 4
     max_new_tokens = 64
-
-    system_msg = {
-        "role": "system", 
-        "content": "Answer concisely. Don't explain the background/reason."
-    }
+    
+    def system_msg(language):
+        if language == 'en':
+            return {
+            "role": "system", 
+            "content": "Answer concisely. Don't explain the background/reason."
+            }
+        if language == 'fr':
+            return {
+                "role": "system",
+                "content": "Répondez de manière concise. N'expliquez pas le contexte ni la raison."
+            }
+        if language == 'de':
+            return {
+            "role": "system",
+            "contetn": "Antworte kurzgefasst. Erkläre nicht den Hintergrund/Begründung."
+            }
 
     output_scores = []
     output_list = []
     with open("outputs_partial.jsonl", "a", encoding="utf-8") as f:
         for i in tqdm(range(0, len(lang_queries), batch_size), desc="Generating", total=(len(lang_queries) + batch_size - 1) // batch_size):
             batch = lang_queries[i:i+batch_size]
-            batch_messages = [[system_msg, {"role": "user", "content":query}] for query in batch]
+            batch_messages = [[system_msg(language), {"role": "user", "content":query}] for query in batch]
             batch_prompts = [
                 tokenizer.apply_chat_template(
                     messages, tokenize=False, add_generation_prompt=True
