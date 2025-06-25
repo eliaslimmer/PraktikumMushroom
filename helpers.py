@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 
 
-def load_dataset(language):
+def prepare_dataset(language):
     # Load the MKQA dataset
     dataset = load_dataset("mkqa")
     train_set = dataset['train']
