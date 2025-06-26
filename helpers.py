@@ -309,7 +309,7 @@ def train_model(MODEL_NAME, LABEL_LIST, data_files, output_dir="./results_xlmr")
 def test_model(MODEL_NAME, test_lang, model_path, data_path):
     # Load the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForTokenClassification.from_pretrained(model_path)
+    model = AutoModelForTokenClassification.from_pretrained(model_path, local_files_only=True)
     # Load the test dataset
     test_dataset = load_dataset('json', data_files={'test': data_path})['test'] #Change the file name
     # Tokenize test dataset
