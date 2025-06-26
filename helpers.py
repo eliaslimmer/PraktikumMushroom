@@ -194,6 +194,8 @@ def generate_hard_labels(input_path: str, output_path: str):
 
     with open(output_path, "w", encoding="utf-8") as f:
         for item in data:
+            item.pop("model_input", None)
+            item.pop("token_scores", None)
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
 def validation_reformat(file_path:str, output_path:str):
@@ -202,7 +204,6 @@ def validation_reformat(file_path:str, output_path:str):
     converted = []
     for item in data:
         converted.append({
-            "id": item.get("id"),
             "model_output_text": item.get("model_output_text"),
             "hard_labels": item.get("hard_labels"),
             "soft_labels": item.get("soft_labels")
