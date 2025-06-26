@@ -169,7 +169,10 @@ def generate_hard_labels(input_path: str, output_path: str):
         text = item.get("model_output_text", "")
         text_len = len(text)
         soft_spans = item.get("soft_labels", [])
-
+        
+        if soft_spans is None:
+            soft_spans = []
+            
         soft_mask = [0] * text_len
         for span in soft_spans:
             for i in range(span["start"], span["end"]):
