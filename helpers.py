@@ -318,7 +318,7 @@ def test_model(MODEL_NAME, test_lang, model_path, data_path):
     # Get predictions for the test set
     model.eval()
     with torch.no_grad():
-        outputs = model(inputs.input_ids)
+        outputs = model(inputs.input_ids, attention_mask=attention_mask)
     preds = torch.argmax(outputs.logits, dim=2)
     probs = F.softmax(outputs.logits, dim=2)
     # map predictions to character spans
