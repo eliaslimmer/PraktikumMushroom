@@ -1,0 +1,9 @@
+transformers
+datasets
+evaluate
+accelerate
+scipy
+seqeval
+torch
+huggingface_hub
+tqdm
