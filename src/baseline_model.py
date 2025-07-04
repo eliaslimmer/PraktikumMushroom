@@ -102,7 +102,7 @@ def train_model(MODEL_NAME, LABEL_LIST, data_files, output_dir="./results_xlmr")
     trainer.save_model(output_dir)
     print(f"Training completed. Checkpoints saved to: {output_dir}")
 
-def test_model(MODEL_NAME, test_lang, model_path, data_path):
+def test_model(MODEL_NAME, test_lang, model_path, data_path, output_path):
     # Load the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     model = AutoModelForTokenClassification.from_pretrained(model_path, local_files_only=True)
@@ -135,12 +135,12 @@ def test_model(MODEL_NAME, test_lang, model_path, data_path):
         soft_labels_all[test_dataset['id'][i]] = soft_labels_sample
         hard_labels_all[test_dataset['id'][i]] = hard_labels_sample
         predictions_all.append({'id': test_dataset['id'][i], 'hard_labels': hard_labels_sample, 'soft_labels': soft_labels_sample})
-    with open(f"{test_lang}-hard_labels.json", 'w') as f:
+    with open(f"{output_path}/{test_lang}-hard_labels.json", 'w') as f:
         json.dump(hard_labels_all, f)
-    with open(f"{test_lang}-soft_labels.json", 'w') as f:
+    with open(f"{output_path}/{test_lang}-soft_labels.json", 'w') as f:
         json.dump(soft_labels_all, f)
-    with open(f"{test_lang}-pred.jsonl", 'w') as f:
+    with open(f"{output_path}/{test_lang}-pred.jsonl", 'w') as f:
         for pred_dict in predictions_all:
             print(json.dumps(pred_dict), file=f)
-    print(f"Labels saved to {test_lang}-hard_labels.json and {test_lang}-soft_labels.json")
-    print(f"Prediction file saved to {test_lang}-pred.jsonl")
+    print(f"Labels saved to {output_path}/{test_lang}-hard_labels.json and {output_path}/{test_lang}-soft_labels.json")
+    print(f"Prediction file saved to {output_path}/{test_lang}-pred.jsonl")
